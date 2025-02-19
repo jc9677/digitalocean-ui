@@ -45,7 +45,8 @@ export class SpacesClient {
       credentials: {
         accessKeyId: credentials.accessKeyId,
         secretAccessKey: credentials.secretAccessKey
-      }
+      },
+      forcePathStyle: true  // This can help with CORS issues
     });
   }
 
