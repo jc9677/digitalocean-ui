@@ -41,17 +41,14 @@ export class SpacesClient {
   constructor(credentials: SpacesCredentials) {
     this.credentials = credentials;
     this.region = credentials.region;
-    this.baseUrl = `https://${this.region}.digitaloceanspaces.com`;
+    this.baseUrl = 'https://api.digitalocean.com/v2';
   }
 
   private async request(path: string, options: RequestInit = {}) {
     const url = `${this.baseUrl}${path}`;
-    const timestamp = new Date().toUTCString();
     const headers = {
-      'Authorization': `AWS ${this.credentials.accessKeyId}:${this.credentials.secretAccessKey}`,
-      'Date': timestamp,
-      'Content-Type': 'application/xml',
-      'x-amz-date': timestamp.replace(/\s/g, 'T').replace(/:/g, '-'),
+      'Authorization': `Bearer ${this.credentials.accessKeyId}`,
+      'Content-Type': 'application/json',
     };
 
     try {
@@ -70,51 +67,19 @@ export class SpacesClient {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const text = await response.text();
-      console.log('Response:', text);
-      
-      // Parse XML response
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(text, 'text/xml');
-      
-      return this.parseResponse(xmlDoc);
+      const data = await response.json();
+      console.log('Response:', data);
+      return data;
     } catch (error) {
       console.error('Request failed:', error);
       throw error;
     }
   }
 
-  private parseResponse(xml: Document) {
-    const result: { spaces?: SpacesBucket[], objects?: SpacesObject[] } = {};
-
-    // Parse bucket list response
-    const buckets = xml.getElementsByTagName('Bucket');
-    if (buckets.length > 0) {
-      result.spaces = Array.from(buckets).map(bucket => ({
-        name: bucket.getElementsByTagName('Name')[0]?.textContent || '',
-        region: this.region,
-        created_at: bucket.getElementsByTagName('CreationDate')[0]?.textContent || new Date().toISOString()
-      }));
-    }
-
-    // Parse object list response
-    const contents = xml.getElementsByTagName('Contents');
-    if (contents.length > 0) {
-      result.objects = Array.from(contents).map(obj => ({
-        name: obj.getElementsByTagName('Key')[0]?.textContent || '',
-        size: parseInt(obj.getElementsByTagName('Size')[0]?.textContent || '0', 10),
-        last_modified: obj.getElementsByTagName('LastModified')[0]?.textContent || '',
-        etag: (obj.getElementsByTagName('ETag')[0]?.textContent || '').replace(/"/g, '')
-      }));
-    }
-
-    return result;
-  }
-
   async listBuckets() {
     try {
       console.log('Listing buckets...');
-      const response = await this.request('/?location');
+      const response = await this.request('/spaces');
       return response.spaces || [];
     } catch (error) {
       console.error('Error listing buckets:', error);
@@ -125,8 +90,7 @@ export class SpacesClient {
   async listObjects(bucketName: string, prefix: string = '') {
     try {
       console.log(`Listing objects in bucket: ${bucketName}, prefix: ${prefix}`);
-      const query = prefix ? `?prefix=${encodeURIComponent(prefix)}` : '';
-      const response = await this.request(`/${bucketName}${query}`);
+      const response = await this.request(`/spaces/${bucketName}/objects?prefix=${encodeURIComponent(prefix)}`);
       return response.objects || [];
     } catch (error) {
       console.error('Error listing objects:', error);

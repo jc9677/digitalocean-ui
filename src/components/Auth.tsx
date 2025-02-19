@@ -1,5 +1,5 @@
 import React, { useState, useEffect, ChangeEvent } from 'react';
-import { Box, TextField, Button, Typography, Paper } from '@mui/material';
+import { Box, TextField, Button, Typography, Paper, Link } from '@mui/material';
 import { SpacesCredentials, getStoredCredentials, storeCredentials, clearCredentials } from '../services/spaces';
 
 interface AuthProps {
@@ -40,25 +40,24 @@ export const Auth: React.FC<AuthProps> = ({ onAuthenticated }) => {
     <Box sx={{ maxWidth: 400, mx: 'auto', mt: 4 }}>
       <Paper sx={{ p: 3 }}>
         <Typography variant="h5" gutterBottom>
-          Digital Ocean Spaces Credentials
+          Digital Ocean API Configuration
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Please enter your Digital Ocean API token and region. You can generate an API token in your{' '}
+          <Link href="https://cloud.digitalocean.com/account/api/tokens" target="_blank" rel="noopener">
+            Digital Ocean Account Settings
+          </Link>
+          .
         </Typography>
         <form onSubmit={handleSubmit}>
           <TextField
             fullWidth
             margin="normal"
-            label="Access Key ID"
+            label="API Token"
             value={credentials.accessKeyId}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setCredentials({ ...credentials, accessKeyId: e.target.value })}
             required
-          />
-          <TextField
-            fullWidth
-            margin="normal"
-            label="Secret Access Key"
-            type="password"
-            value={credentials.secretAccessKey}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setCredentials({ ...credentials, secretAccessKey: e.target.value })}
-            required
+            helperText="Enter your Digital Ocean API token"
           />
           <TextField
             fullWidth
@@ -67,13 +66,14 @@ export const Auth: React.FC<AuthProps> = ({ onAuthenticated }) => {
             value={credentials.region}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setCredentials({ ...credentials, region: e.target.value })}
             required
+            helperText="Enter the region where your Spaces are located"
           />
           <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
             <Button type="submit" variant="contained" color="primary">
-              Save Credentials
+              Save Configuration
             </Button>
             <Button variant="outlined" color="secondary" onClick={handleClear}>
-              Clear Credentials
+              Clear Configuration
             </Button>
           </Box>
         </form>
