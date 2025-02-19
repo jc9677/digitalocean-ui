@@ -34,10 +34,15 @@ export const createS3Client = (credentials: SpacesCredentials): S3Client => {
       secretAccessKey: credentials.secretAccessKey,
     },
     forcePathStyle: true,
-    // Add specific configuration for browser environments
-    tls: true,
-    retryMode: 'standard',
-    maxAttempts: 3
+    // Configure specific headers and behavior
+    customUserAgent: 'digitalocean-spaces-browser',
+    maxAttempts: 3,
+    requestHandler: {
+      abortSignal: undefined,
+      connectionTimeout: 5000,
+      keepAlive: true,
+      handlerProtocol: 'https'
+    }
   });
 };
 
@@ -45,7 +50,7 @@ export const listBuckets = async (client: S3Client) => {
   try {
     console.log('Attempting to list buckets...');
     const command = new ListBucketsCommand({});
-    console.log('Command:', command);
+    console.log('Sending ListBucketsCommand...');
     const response = await client.send(command);
     console.log('List buckets response:', response);
     return response.Buckets || [];
@@ -67,6 +72,7 @@ export const listObjects = async (client: S3Client, bucketName: string, prefix: 
       Bucket: bucketName,
       Prefix: prefix,
     });
+    console.log('Sending ListObjectsV2Command...');
     const response = await client.send(command);
     console.log('List objects response:', response);
     return response.Contents || [];
