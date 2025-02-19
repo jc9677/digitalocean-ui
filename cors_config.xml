@@ -7,13 +7,7 @@
         <AllowedMethod>PUT</AllowedMethod>
         <AllowedMethod>POST</AllowedMethod>
         <AllowedMethod>DELETE</AllowedMethod>
-        <AllowedHeader>authorization</AllowedHeader>
-        <AllowedHeader>content-type</AllowedHeader>
-        <AllowedHeader>x-amz-content-sha256</AllowedHeader>
-        <AllowedHeader>x-amz-date</AllowedHeader>
-        <AllowedHeader>x-amz-user-agent</AllowedHeader>
-        <AllowedHeader>x-amz-target</AllowedHeader>
-        <AllowedHeader>x-amz-acl</AllowedHeader>
+        <AllowedHeader>*</AllowedHeader>
         <ExposeHeader>ETag</ExposeHeader>
         <ExposeHeader>x-amz-server-side-encryption</ExposeHeader>
         <ExposeHeader>x-amz-request-id</ExposeHeader>
