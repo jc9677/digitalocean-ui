@@ -49,13 +49,16 @@ export class SpacesClient {
     });
   }
 
+  get region(): string {
+    return this.client.config.region?.toString() || '';
+  }
+
   async listBuckets() {
     const command = new ListBucketsCommand({});
     const response = await this.client.send(command);
-    const region = this.client.config.region?.toString() || '';
     return response.Buckets?.map(bucket => ({
       name: bucket.Name || '',
-      region: region,
+      region: this.region,
       created_at: bucket.CreationDate?.toISOString() || new Date().toISOString()
     })) || [];
   }
