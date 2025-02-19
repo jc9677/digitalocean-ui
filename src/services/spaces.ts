@@ -91,21 +91,18 @@ export class SpacesClient {
     const url = `https://${this.endpoint}${path}`;
     
     const headers: Record<string, string> = {
-      'Date': timestamp,
       'Host': this.endpoint,
-      'Origin': window.location.origin,
-      'Content-Type': 'application/xml'
+      'Date': timestamp,
+      'Authorization': await this.signRequest(method, path.replace(/^\//, ''), { 'Date': timestamp }),
+      'x-amz-date': timestamp
     };
-
-    // Sign the request
-    headers['Authorization'] = await this.signRequest(method, path.replace(/^\//, ''), headers);
 
     console.log('Making API request...');
     console.log('URL:', url);
     console.log('Method:', method);
     console.log('Headers:', {
       ...headers,
-      'Authorization': 'AWS [REDACTED]', // Don't log the actual credentials
+      'Authorization': 'AWS [REDACTED]' // Don't log the actual credentials
     });
 
     try {
