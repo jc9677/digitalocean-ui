@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<CORSConfiguration>
+<CORSConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
     <CORSRule>
         <AllowedOrigin>https://jc9677.github.io</AllowedOrigin>
         <AllowedMethod>GET</AllowedMethod>
@@ -7,7 +7,13 @@
         <AllowedMethod>PUT</AllowedMethod>
         <AllowedMethod>POST</AllowedMethod>
         <AllowedMethod>DELETE</AllowedMethod>
-        <AllowedHeader>*</AllowedHeader>
+        <AllowedHeader>authorization</AllowedHeader>
+        <AllowedHeader>content-type</AllowedHeader>
+        <AllowedHeader>x-amz-content-sha256</AllowedHeader>
+        <AllowedHeader>x-amz-date</AllowedHeader>
+        <AllowedHeader>x-amz-user-agent</AllowedHeader>
+        <AllowedHeader>x-amz-target</AllowedHeader>
+        <AllowedHeader>x-amz-acl</AllowedHeader>
         <ExposeHeader>ETag</ExposeHeader>
         <ExposeHeader>x-amz-server-side-encryption</ExposeHeader>
         <ExposeHeader>x-amz-request-id</ExposeHeader>

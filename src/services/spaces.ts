@@ -46,7 +46,8 @@ export class SpacesClient {
         accessKeyId: credentials.accessKeyId,
         secretAccessKey: credentials.secretAccessKey
       },
-      forcePathStyle: true  // This can help with CORS issues
+      forcePathStyle: true,  // This can help with CORS issues
+      customUserAgent: 'aws-sdk-js'  // Use standard AWS SDK user agent
     });
   }
 
