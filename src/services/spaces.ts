@@ -25,12 +25,23 @@ export const clearCredentials = (): void => {
 export const createS3Client = (credentials: SpacesCredentials): S3Client => {
   return new S3Client({
     endpoint: `https://${credentials.region}.digitaloceanspaces.com`,
-    region: credentials.region,
+    region: 'us-east-1', // Digital Ocean expects this
     credentials: {
       accessKeyId: credentials.accessKeyId,
       secretAccessKey: credentials.secretAccessKey,
     },
-    forcePathStyle: false
+    forcePathStyle: false, // Use virtual-hosted style
+    // Add custom configuration
+    customUserAgent: 'DigitalOcean-Spaces-Browser',
+    maxAttempts: 3,
+    // Use specific configuration for browser environments
+    tls: true,
+    requestHandler: {
+      abortSignal: undefined,
+      connectionTimeout: 5000,
+      keepAlive: true,
+      handlerProtocol: 'https'
+    }
   });
 };
 
