@@ -1,5 +1,3 @@
-import { S3Client, ListBucketsCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
-
 export interface SpacesCredentials {
   accessKeyId: string;
   secretAccessKey: string;
