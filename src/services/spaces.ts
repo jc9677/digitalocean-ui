@@ -29,21 +29,36 @@ export const createS3Client = (credentials: SpacesCredentials): S3Client => {
     credentials: {
       accessKeyId: credentials.accessKeyId,
       secretAccessKey: credentials.secretAccessKey,
-    }
+    },
+    forcePathStyle: false
   });
 };
 
 export const listBuckets = async (client: S3Client) => {
-  const command = new ListBucketsCommand({});
-  const response = await client.send(command);
-  return response.Buckets || [];
+  try {
+    console.log('Attempting to list buckets...');
+    const command = new ListBucketsCommand({});
+    const response = await client.send(command);
+    console.log('List buckets response:', response);
+    return response.Buckets || [];
+  } catch (error) {
+    console.error('Error listing buckets:', error);
+    throw error;
+  }
 };
 
 export const listObjects = async (client: S3Client, bucketName: string, prefix: string = '') => {
-  const command = new ListObjectsV2Command({
-    Bucket: bucketName,
-    Prefix: prefix,
-  });
-  const response = await client.send(command);
-  return response.Contents || [];
+  try {
+    console.log(`Attempting to list objects in bucket: ${bucketName}, prefix: ${prefix}`);
+    const command = new ListObjectsV2Command({
+      Bucket: bucketName,
+      Prefix: prefix,
+    });
+    const response = await client.send(command);
+    console.log('List objects response:', response);
+    return response.Contents || [];
+  } catch (error) {
+    console.error('Error listing objects:', error);
+    throw error;
+  }
 }; 
