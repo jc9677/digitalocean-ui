@@ -93,8 +93,10 @@ export class SpacesClient {
     const headers: Record<string, string> = {
       'Host': this.endpoint,
       'Date': timestamp,
+      'Content-Type': 'application/xml',
       'Authorization': await this.signRequest(method, path.replace(/^\//, ''), { 'Date': timestamp }),
-      'x-amz-date': timestamp
+      'x-amz-date': timestamp,
+      'x-amz-acl': 'private'
     };
 
     console.log('Making API request...');
