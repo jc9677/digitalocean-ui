@@ -51,19 +51,24 @@ export class SpacesClient {
   constructor(credentials: SpacesCredentials) {
     console.log('Initializing SpacesClient...');
     console.log('Region:', credentials.region);
-    console.log('API Token length:', credentials.accessKeyId.length);
     this.credentials = credentials;
     this.region = credentials.region;
-    this.baseUrl = 'https://api.digitalocean.com/v2';
+    this.baseUrl = `https://${this.region}.digitaloceanspaces.com`;
     console.log('Base URL:', this.baseUrl);
     console.log('SpacesClient initialized successfully');
   }
 
   private async request(path: string, options: RequestInit = {}) {
     const url = `${this.baseUrl}${path}`;
+    const timestamp = new Date().toUTCString();
+    
+    // Create signature for AWS-style authentication
+    const signature = `AWS ${this.credentials.accessKeyId}:${this.credentials.secretAccessKey}`;
+    
     const headers = {
-      'Authorization': `Bearer ${this.credentials.accessKeyId}`,
-      'Content-Type': 'application/json',
+      'Authorization': signature,
+      'Date': timestamp,
+      'Host': `${this.region}.digitaloceanspaces.com`,
     };
 
     console.log('Making API request...');
@@ -71,8 +76,7 @@ export class SpacesClient {
     console.log('Method:', options.method || 'GET');
     console.log('Headers:', {
       ...headers,
-      'Authorization': 'Bearer [REDACTED]', // Don't log the actual token
-      ...options.headers,
+      'Authorization': 'AWS [REDACTED]', // Don't log the actual credentials
     });
 
     try {
@@ -93,19 +97,18 @@ export class SpacesClient {
       if (!response.ok) {
         const text = await response.text();
         console.error('Error response body:', text);
-        console.error('Response headers:', Object.fromEntries(response.headers.entries()));
         throw new Error(`HTTP error! status: ${response.status}, statusText: ${response.statusText}, body: ${text}`);
       }
 
-      console.log('Parsing response as JSON...');
-      const data = await response.json();
-      console.log('Parsed response data:', data);
-      return data;
+      const text = await response.text();
+      console.log('Response text:', text);
+
+      // Parse XML response
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(text, 'text/xml');
+      return this.parseResponse(xmlDoc);
     } catch (error: any) {
-      console.error('Request failed with error:', error);
-      console.error('Error name:', error.name);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
+      console.error('Request failed:', error);
       if (error instanceof TypeError) {
         console.error('Network error details:', {
           isCORS: error.message.includes('CORS'),
@@ -117,19 +120,50 @@ export class SpacesClient {
     }
   }
 
+  private parseResponse(xml: Document) {
+    const result: { spaces?: SpacesBucket[], objects?: SpacesObject[] } = {};
+
+    // Check for errors first
+    const errorNode = xml.querySelector('Error');
+    if (errorNode) {
+      const code = errorNode.querySelector('Code')?.textContent;
+      const message = errorNode.querySelector('Message')?.textContent;
+      throw new Error(`S3 Error: ${code} - ${message}`);
+    }
+
+    // Parse bucket list response
+    const buckets = xml.getElementsByTagName('Bucket');
+    if (buckets.length > 0) {
+      result.spaces = Array.from(buckets).map(bucket => ({
+        name: bucket.getElementsByTagName('Name')[0]?.textContent || '',
+        region: this.region,
+        created_at: bucket.getElementsByTagName('CreationDate')[0]?.textContent || new Date().toISOString()
+      }));
+    }
+
+    // Parse object list response
+    const contents = xml.getElementsByTagName('Contents');
+    if (contents.length > 0) {
+      result.objects = Array.from(contents).map(obj => ({
+        name: obj.getElementsByTagName('Key')[0]?.textContent || '',
+        size: parseInt(obj.getElementsByTagName('Size')[0]?.textContent || '0', 10),
+        last_modified: obj.getElementsByTagName('LastModified')[0]?.textContent || '',
+        etag: (obj.getElementsByTagName('ETag')[0]?.textContent || '').replace(/"/g, '')
+      }));
+    }
+
+    return result;
+  }
+
   async listBuckets() {
     try {
       console.log('Listing buckets...');
-      console.log('Making request to /spaces endpoint');
-      const response = await this.request('/spaces');
+      const response = await this.request('/?location');
       console.log('Received buckets response:', response);
-      const buckets = response.spaces || [];
-      console.log('Found', buckets.length, 'buckets');
-      return buckets;
+      return response.spaces || [];
     } catch (error: any) {
       console.error('Error listing buckets:', error);
-      console.error('Stack trace:', error.stack);
-      throw error;
+      throw new Error(`Failed to list buckets: ${error.message}`);
     }
   }
 
@@ -137,15 +171,13 @@ export class SpacesClient {
     try {
       console.log(`Listing objects in bucket: ${bucketName}`);
       console.log('Prefix:', prefix);
-      const response = await this.request(`/spaces/${bucketName}/objects?prefix=${encodeURIComponent(prefix)}`);
+      const query = prefix ? `?prefix=${encodeURIComponent(prefix)}` : '';
+      const response = await this.request(`/${bucketName}${query}`);
       console.log('Received objects response:', response);
-      const objects = response.objects || [];
-      console.log('Found', objects.length, 'objects');
-      return objects;
+      return response.objects || [];
     } catch (error: any) {
       console.error('Error listing objects:', error);
-      console.error('Stack trace:', error.stack);
-      throw error;
+      throw new Error(`Failed to list objects in bucket ${bucketName}: ${error.message}`);
     }
   }
 }
