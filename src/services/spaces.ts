@@ -22,6 +22,16 @@ export const clearCredentials = (): void => {
   localStorage.removeItem(CREDENTIALS_KEY);
 };
 
+// Custom fetch function with no-cors mode
+const customFetch = async (url: string, options: RequestInit = {}) => {
+  const response = await fetch(url, {
+    ...options,
+    mode: 'no-cors',
+    credentials: 'omit'
+  });
+  return response;
+};
+
 export const createS3Client = (credentials: SpacesCredentials): S3Client => {
   const endpoint = `https://${credentials.region}.digitaloceanspaces.com`;
   console.log('Creating S3 client with endpoint:', endpoint);
@@ -34,14 +44,13 @@ export const createS3Client = (credentials: SpacesCredentials): S3Client => {
       secretAccessKey: credentials.secretAccessKey,
     },
     forcePathStyle: true,
-    // Configure specific headers and behavior
-    customUserAgent: 'digitalocean-spaces-browser',
-    maxAttempts: 3,
     requestHandler: {
       abortSignal: undefined,
       connectionTimeout: 5000,
       keepAlive: true,
-      handlerProtocol: 'https'
+      handlerProtocol: 'https',
+      // Use our custom fetch function
+      fetchFunction: customFetch
     }
   });
 };
