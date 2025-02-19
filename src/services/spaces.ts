@@ -94,10 +94,7 @@ export class SpacesClient {
       'Date': timestamp,
       'Host': this.endpoint,
       'Origin': window.location.origin,
-      'Content-Type': 'application/xml',
-      'Access-Control-Request-Method': method,
-      'Access-Control-Request-Headers': 'authorization,content-type,date,host,origin',
-      'Access-Control-Expose-Headers': 'ETag'
+      'Content-Type': 'application/xml'
     };
 
     // Sign the request
