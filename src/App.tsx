@@ -3,8 +3,7 @@ import { Container, CssBaseline, ThemeProvider, createTheme } from '@mui/materia
 import { Auth } from './components/Auth';
 import { BucketList } from './components/BucketList';
 import { BucketView } from './components/BucketView';
-import { SpacesCredentials, createS3Client } from './services/spaces';
-import { S3Client } from '@aws-sdk/client-s3';
+import { SpacesCredentials, createSpacesClient } from './services/spaces';
 
 const theme = createTheme({
   palette: {
@@ -19,11 +18,11 @@ const theme = createTheme({
 });
 
 function App() {
-  const [client, setClient] = useState<S3Client | null>(null);
+  const [client, setClient] = useState<ReturnType<typeof createSpacesClient> | null>(null);
   const [selectedBucket, setSelectedBucket] = useState<string | null>(null);
 
   const handleAuthenticated = (credentials: SpacesCredentials) => {
-    const newClient = createS3Client(credentials);
+    const newClient = createSpacesClient(credentials);
     setClient(newClient);
     setSelectedBucket(null);
   };

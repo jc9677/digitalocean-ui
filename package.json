@@ -2,7 +2,7 @@
   "name": "digitalocean-ui",
   "version": "0.1.0",
   "private": true,
-  "homepage": "https://USERNAME.github.io/digitalocean-ui",
+  "homepage": "https://jc9677.github.io/digitalocean-ui",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.0.0",
     "@aws-sdk/lib-storage": "^3.0.0",

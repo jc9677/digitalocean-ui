@@ -22,76 +22,93 @@ export const clearCredentials = (): void => {
   localStorage.removeItem(CREDENTIALS_KEY);
 };
 
-// Custom fetch function with no-cors mode
-const customFetch = async (url: string, options: RequestInit = {}) => {
-  const response = await fetch(url, {
-    ...options,
-    mode: 'no-cors',
-    credentials: 'omit'
-  });
-  return response;
-};
+interface SpacesBucket {
+  name: string;
+  region: string;
+  created_at: string;
+}
 
-export const createS3Client = (credentials: SpacesCredentials): S3Client => {
-  const endpoint = `https://${credentials.region}.digitaloceanspaces.com`;
-  console.log('Creating S3 client with endpoint:', endpoint);
-  
-  return new S3Client({
-    endpoint,
-    region: 'us-east-1', // Digital Ocean expects this
-    credentials: {
-      accessKeyId: credentials.accessKeyId,
-      secretAccessKey: credentials.secretAccessKey,
-    },
-    forcePathStyle: true,
-    requestHandler: {
-      abortSignal: undefined,
-      connectionTimeout: 5000,
-      keepAlive: true,
-      handlerProtocol: 'https',
-      // Use our custom fetch function
-      fetchFunction: customFetch
-    }
-  });
-};
+interface SpacesObject {
+  name: string;
+  size: number;
+  last_modified: string;
+  etag: string;
+}
 
-export const listBuckets = async (client: S3Client) => {
-  try {
-    console.log('Attempting to list buckets...');
-    const command = new ListBucketsCommand({});
-    console.log('Sending ListBucketsCommand...');
-    const response = await client.send(command);
-    console.log('List buckets response:', response);
-    return response.Buckets || [];
-  } catch (error) {
-    console.error('Error listing buckets:', error);
-    if (error instanceof Error) {
-      console.error('Error name:', error.name);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
-    }
-    throw error;
+export class SpacesClient {
+  private baseUrl: string;
+  private credentials: SpacesCredentials;
+  readonly region: string;
+
+  constructor(credentials: SpacesCredentials) {
+    this.credentials = credentials;
+    this.region = credentials.region;
+    this.baseUrl = `https://api.digitalocean.com/v2`;
   }
+
+  private async request(path: string, options: RequestInit = {}) {
+    const url = `${this.baseUrl}${path}`;
+    const headers = {
+      'Authorization': `Bearer ${this.credentials.accessKeyId}`,
+      'Content-Type': 'application/json',
+    };
+
+    try {
+      console.log(`Making request to: ${url}`);
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          ...headers,
+          ...options.headers,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Response:', data);
+      return data;
+    } catch (error) {
+      console.error('Request failed:', error);
+      throw error;
+    }
+  }
+
+  async listBuckets() {
+    try {
+      console.log('Listing buckets...');
+      const response = await this.request('/spaces');
+      return response.spaces || [];
+    } catch (error) {
+      console.error('Error listing buckets:', error);
+      throw error;
+    }
+  }
+
+  async listObjects(bucketName: string, prefix: string = '') {
+    try {
+      console.log(`Listing objects in bucket: ${bucketName}, prefix: ${prefix}`);
+      const response = await this.request(`/spaces/${bucketName}/objects`, {
+        method: 'GET',
+        headers: {
+          'prefix': prefix,
+        },
+      });
+      return response.objects || [];
+    } catch (error) {
+      console.error('Error listing objects:', error);
+      throw error;
+    }
+  }
+}
+
+// Factory function to create a client
+export const createSpacesClient = (credentials: SpacesCredentials): SpacesClient => {
+  return new SpacesClient(credentials);
 };
 
-export const listObjects = async (client: S3Client, bucketName: string, prefix: string = '') => {
-  try {
-    console.log(`Attempting to list objects in bucket: ${bucketName}, prefix: ${prefix}`);
-    const command = new ListObjectsV2Command({
-      Bucket: bucketName,
-      Prefix: prefix,
-    });
-    console.log('Sending ListObjectsV2Command...');
-    const response = await client.send(command);
-    console.log('List objects response:', response);
-    return response.Contents || [];
-  } catch (error) {
-    console.error('Error listing objects:', error);
-    if (error instanceof Error) {
-      console.error('Error name:', error.name);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
-    }
-    throw error;
-  }
-}; 
+// Type definitions for compatibility with existing code
+export type { SpacesBucket as Bucket };
+export type { SpacesObject as Object }; 

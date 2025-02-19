@@ -12,23 +12,16 @@ import {
   IconButton,
 } from '@mui/material';
 import { FolderOutlined, InsertDriveFileOutlined, ArrowBack } from '@mui/icons-material';
-import { S3Client } from '@aws-sdk/client-s3';
-import { listObjects } from '../services/spaces';
+import { SpacesClient, Object as SpacesObject } from '../services/spaces';
 
 interface BucketViewProps {
-  client: S3Client;
+  client: SpacesClient;
   bucketName: string;
   onBack: () => void;
 }
 
-interface FileItem {
-  Key: string;
-  Size: number;
-  LastModified: Date;
-}
-
 export const BucketView: React.FC<BucketViewProps> = ({ client, bucketName, onBack }) => {
-  const [objects, setObjects] = useState<FileItem[]>([]);
+  const [objects, setObjects] = useState<SpacesObject[]>([]);
   const [currentPrefix, setCurrentPrefix] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,8 +29,8 @@ export const BucketView: React.FC<BucketViewProps> = ({ client, bucketName, onBa
   const fetchObjects = async (prefix: string) => {
     try {
       setLoading(true);
-      const objectList = await listObjects(client, bucketName, prefix);
-      setObjects(objectList as FileItem[]);
+      const objectList = await client.listObjects(bucketName, prefix);
+      setObjects(objectList);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch objects');
@@ -54,8 +47,8 @@ export const BucketView: React.FC<BucketViewProps> = ({ client, bucketName, onBa
     setCurrentPrefix(prefix);
   };
 
-  const handleFileClick = (key: string) => {
-    const url = `https://${bucketName}.${client.config.region}.digitaloceanspaces.com/${key}`;
+  const handleFileClick = (name: string) => {
+    const url = `https://${bucketName}.${client.region}.digitaloceanspaces.com/${name}`;
     window.open(url, '_blank');
   };
 
@@ -105,17 +98,17 @@ export const BucketView: React.FC<BucketViewProps> = ({ client, bucketName, onBa
   }
 
   const folders = new Set<string>();
-  const files: FileItem[] = [];
+  const files: SpacesObject[] = [];
 
   objects.forEach((obj) => {
-    if (!obj.Key) return;
+    if (!obj.name) return;
     
-    const relativePath = obj.Key.slice(currentPrefix.length);
+    const relativePath = obj.name.slice(currentPrefix.length);
     const parts = relativePath.split('/');
     
     if (parts.length > 1) {
       folders.add(parts[0]);
-    } else if (obj.Key !== currentPrefix) {
+    } else if (obj.name !== currentPrefix) {
       files.push(obj);
     }
   });
@@ -145,16 +138,16 @@ export const BucketView: React.FC<BucketViewProps> = ({ client, bucketName, onBa
 
         {files.map((file) => (
           <ListItem
-            key={file.Key}
+            key={file.name}
             button
-            onClick={() => handleFileClick(file.Key)}
+            onClick={() => handleFileClick(file.name)}
           >
             <ListItemIcon>
               <InsertDriveFileOutlined />
             </ListItemIcon>
             <ListItemText
-              primary={file.Key.split('/').pop()}
-              secondary={`Size: ${(file.Size / 1024).toFixed(2)} KB • Modified: ${new Date(file.LastModified).toLocaleString()}`}
+              primary={file.name.split('/').pop()}
+              secondary={`Size: ${(file.size / 1024).toFixed(2)} KB • Modified: ${new Date(file.last_modified).toLocaleString()}`}
             />
           </ListItem>
         ))}

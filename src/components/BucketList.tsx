@@ -1,15 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Box, List, ListItem, ListItemButton, ListItemText, Typography, CircularProgress } from '@mui/material';
-import { S3Client } from '@aws-sdk/client-s3';
-import { listBuckets } from '../services/spaces';
+import { SpacesClient, Bucket } from '../services/spaces';
 
 interface BucketListProps {
-  client: S3Client;
+  client: SpacesClient;
   onSelectBucket: (bucketName: string) => void;
 }
 
 export const BucketList: React.FC<BucketListProps> = ({ client, onSelectBucket }) => {
-  const [buckets, setBuckets] = useState<Array<{ Name: string }>>([]);
+  const [buckets, setBuckets] = useState<Bucket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -17,7 +16,7 @@ export const BucketList: React.FC<BucketListProps> = ({ client, onSelectBucket }
     const fetchBuckets = async () => {
       try {
         setLoading(true);
-        const bucketList = await listBuckets(client);
+        const bucketList = await client.listBuckets();
         setBuckets(bucketList);
         setError(null);
       } catch (err) {
@@ -53,9 +52,12 @@ export const BucketList: React.FC<BucketListProps> = ({ client, onSelectBucket }
       </Typography>
       <List>
         {buckets.map((bucket) => (
-          <ListItem key={bucket.Name} disablePadding>
-            <ListItemButton onClick={() => onSelectBucket(bucket.Name!)}>
-              <ListItemText primary={bucket.Name} />
+          <ListItem key={bucket.name} disablePadding>
+            <ListItemButton onClick={() => onSelectBucket(bucket.name)}>
+              <ListItemText 
+                primary={bucket.name} 
+                secondary={`Region: ${bucket.region} • Created: ${new Date(bucket.created_at).toLocaleDateString()}`}
+              />
             </ListItemButton>
           </ListItem>
         ))}
