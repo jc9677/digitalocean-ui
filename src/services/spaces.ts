@@ -23,25 +23,21 @@ export const clearCredentials = (): void => {
 };
 
 export const createS3Client = (credentials: SpacesCredentials): S3Client => {
+  const endpoint = `https://${credentials.region}.digitaloceanspaces.com`;
+  console.log('Creating S3 client with endpoint:', endpoint);
+  
   return new S3Client({
-    endpoint: `https://${credentials.region}.digitaloceanspaces.com`,
+    endpoint,
     region: 'us-east-1', // Digital Ocean expects this
     credentials: {
       accessKeyId: credentials.accessKeyId,
       secretAccessKey: credentials.secretAccessKey,
     },
-    forcePathStyle: false, // Use virtual-hosted style
-    // Add custom configuration
-    customUserAgent: 'DigitalOcean-Spaces-Browser',
-    maxAttempts: 3,
-    // Use specific configuration for browser environments
+    forcePathStyle: true,
+    // Add specific configuration for browser environments
     tls: true,
-    requestHandler: {
-      abortSignal: undefined,
-      connectionTimeout: 5000,
-      keepAlive: true,
-      handlerProtocol: 'https'
-    }
+    retryMode: 'standard',
+    maxAttempts: 3
   });
 };
 
@@ -49,11 +45,17 @@ export const listBuckets = async (client: S3Client) => {
   try {
     console.log('Attempting to list buckets...');
     const command = new ListBucketsCommand({});
+    console.log('Command:', command);
     const response = await client.send(command);
     console.log('List buckets response:', response);
     return response.Buckets || [];
   } catch (error) {
     console.error('Error listing buckets:', error);
+    if (error instanceof Error) {
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
     throw error;
   }
 };
@@ -70,6 +72,11 @@ export const listObjects = async (client: S3Client, bucketName: string, prefix: 
     return response.Contents || [];
   } catch (error) {
     console.error('Error listing objects:', error);
+    if (error instanceof Error) {
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
     throw error;
   }
 }; 
