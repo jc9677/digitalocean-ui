@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DO Spaces Viewer (Pyodide)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 16px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            margin: 4px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #0069ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+        }
+        button:hover {
+            background: #0052cc;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .list {
+            margin-top: 20px;
+        }
+        .item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .error {
+            color: red;
+            margin: 10px 0;
+            padding: 10px;
+            background: #fff0f0;
+            border-radius: 4px;
+            display: none;
+        }
+        .breadcrumb {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            display: none;
+        }
+        .breadcrumb a {
+            color: #0069ff;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        #loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        .size {
+            color: #666;
+            font-size: 0.9em;
+        }
+        #pyodideProgress {
+            text-align: center;
+            margin-bottom: 20px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>DO Spaces Viewer</h1>
+        
+        <div id="pyodideProgress">Loading Python environment...</div>
+
+        <div class="form-group">
+            <input type="text" id="accessKey" placeholder="Access Key" />
+            <input type="password" id="secretKey" placeholder="Secret Key" />
+            <input type="text" id="region" placeholder="Region (e.g. tor1)" value="tor1" />
+            <button onclick="listBuckets()" id="listButton" disabled>List Buckets</button>
+        </div>
+
+        <div id="loading">Loading...</div>
+        <div id="error" class="error"></div>
+        <div id="breadcrumb" class="breadcrumb"></div>
+        <div id="content" class="list"></div>
+    </div>
+
+    <script>
+        let pyodide;
+        let currentPath = { bucket: '', prefix: '' };
+
+        // Initialize Pyodide
+        async function init() {
+            document.getElementById('pyodideProgress').style.display = 'block';
+            document.getElementById('listButton').disabled = true;
+
+            try {
+                pyodide = await loadPyodide();
+                
+                // Load our Python code
+                await pyodide.runPythonAsync(`
+import json
+import hmac
+import hashlib
+import base64
+from datetime import datetime, timezone
+import urllib.parse
+from pyodide.http import pyfetch
+
+def sign_request(method, path, query, access_key, secret_key, region):
+    host = f'{region}.digitaloceanspaces.com'
+    now = datetime.now(timezone.utc)
+    amz_date = now.strftime('%Y%m%dT%H%M%SZ')
+    date_stamp = now.strftime('%Y%m%d')
+    
+    # Create canonical request
+    canonical_uri = path
+    canonical_querystring = query[1:] if query.startswith('?') else query
+    canonical_headers = f'host:{host}\\nx-amz-date:{amz_date}\\n'
+    signed_headers = 'host;x-amz-date'
+    payload_hash = hashlib.sha256(b'').hexdigest()
+    
+    canonical_request = f'{method}\\n{canonical_uri}\\n{canonical_querystring}\\n{canonical_headers}\\n{signed_headers}\\n{payload_hash}'
+    
+    # Create string to sign
+    algorithm = 'AWS4-HMAC-SHA256'
+    credential_scope = f'{date_stamp}/{region}/s3/aws4_request'
+    string_to_sign = f'{algorithm}\\n{amz_date}\\n{credential_scope}\\n{hashlib.sha256(canonical_request.encode()).hexdigest()}'
+    
+    # Calculate signature
+    k_date = hmac.new(f'AWS4{secret_key}'.encode(), date_stamp.encode(), hashlib.sha256).digest()
+    k_region = hmac.new(k_date, region.encode(), hashlib.sha256).digest()
+    k_service = hmac.new(k_region, b's3', hashlib.sha256).digest()
+    k_signing = hmac.new(k_service, b'aws4_request', hashlib.sha256).digest()
+    signature = hmac.new(k_signing, string_to_sign.encode(), hashlib.sha256).hexdigest()
+    
+    # Create authorization header
+    authorization = f'{algorithm} Credential={access_key}/{credential_scope}, SignedHeaders={signed_headers}, Signature={signature}'
+    
+    # Return headers
+    return {
+        'x-amz-date': amz_date,
+        'Authorization': authorization
+    }
+
+async def make_request(method, path, query='', access_key='', secret_key='', region=''):
+    # Create pre-signed URL
+    now = datetime.now(timezone.utc)
+    amz_date = now.strftime('%Y%m%dT%H%M%SZ')
+    date_stamp = now.strftime('%Y%m%d')
+    
+    algorithm = 'AWS4-HMAC-SHA256'
+    credential_scope = f'{date_stamp}/{region}/s3/aws4_request'
+    
+    # Calculate signature
+    k_date = hmac.new(f'AWS4{secret_key}'.encode(), date_stamp.encode(), hashlib.sha256).digest()
+    k_region = hmac.new(k_date, region.encode(), hashlib.sha256).digest()
+    k_service = hmac.new(k_region, b's3', hashlib.sha256).digest()
+    k_signing = hmac.new(k_service, b'aws4_request', hashlib.sha256).digest()
+    
+    # Create canonical request for pre-signed URL
+    canonical_uri = path
+    canonical_querystring = f'X-Amz-Algorithm={algorithm}&X-Amz-Credential={access_key}%2F{date_stamp}%2F{region}%2Fs3%2Faws4_request&X-Amz-Date={amz_date}&X-Amz-Expires=60&X-Amz-SignedHeaders=host'
+    if query and not query.startswith('?'):
+        canonical_querystring = f'{query}&{canonical_querystring}'
+    elif query:
+        canonical_querystring = f'{query[1:]}&{canonical_querystring}'
+    
+    canonical_headers = f'host:{region}.digitaloceanspaces.com\\n'
+    signed_headers = 'host'
+    payload_hash = 'UNSIGNED-PAYLOAD'
+    
+    canonical_request = f'{method}\\n{canonical_uri}\\n{canonical_querystring}\\n{canonical_headers}\\n{signed_headers}\\n{payload_hash}'
+    
+    string_to_sign = f'{algorithm}\\n{amz_date}\\n{credential_scope}\\n{hashlib.sha256(canonical_request.encode()).hexdigest()}'
+    signature = hmac.new(k_signing, string_to_sign.encode(), hashlib.sha256).hexdigest()
+    
+    # Create pre-signed URL
+    presigned_url = f'https://{region}.digitaloceanspaces.com{path}?{canonical_querystring}&X-Amz-Signature={signature}'
+    
+    try:
+        response = await pyfetch(
+            presigned_url,
+            method='GET',
+            credentials='omit'
+        )
+        
+        if response.status != 200:
+            error_text = await response.text()
+            raise Exception(f'Request failed with status {response.status}: {error_text}')
+        
+        return await response.text()
+    except Exception as e:
+        raise Exception(f'Request failed: {str(e)}. Please ensure CORS is properly configured in your Space.')
+
+async def list_buckets(access_key, secret_key, region):
+    try:
+        response = await make_request('GET', '/', '?x-id=ListBuckets', 
+                                    access_key, secret_key, region)
+        return response
+    except Exception as e:
+        raise Exception(f'Failed to list buckets: {str(e)}')
+
+async def list_objects(bucket, prefix, access_key, secret_key, region):
+    try:
+        query = f'?prefix={prefix}&delimiter=/'
+        response = await make_request('GET', f'/{bucket}', query,
+                                    access_key, secret_key, region)
+        return response
+    except Exception as e:
+        raise Exception(f'Failed to list objects: {str(e)}')
+
+def create_download_url(bucket, key, access_key, secret_key, region):
+    host = f'{region}.digitaloceanspaces.com'
+    path = f'/{bucket}/{key}'
+    now = datetime.now(timezone.utc)
+    amz_date = now.strftime('%Y%m%dT%H%M%SZ')
+    date_stamp = now.strftime('%Y%m%d')
+    
+    algorithm = 'AWS4-HMAC-SHA256'
+    credential_scope = f'{date_stamp}/{region}/s3/aws4_request'
+    
+    # Calculate signature
+    k_date = hmac.new(f'AWS4{secret_key}'.encode(), date_stamp.encode(), hashlib.sha256).digest()
+    k_region = hmac.new(k_date, region.encode(), hashlib.sha256).digest()
+    k_service = hmac.new(k_region, b's3', hashlib.sha256).digest()
+    k_signing = hmac.new(k_service, b'aws4_request', hashlib.sha256).digest()
+    
+    # Create canonical request for pre-signed URL
+    canonical_uri = path
+    canonical_querystring = f'X-Amz-Algorithm={algorithm}&X-Amz-Credential={access_key}%2F{date_stamp}%2F{region}%2Fs3%2Faws4_request&X-Amz-Date={amz_date}&X-Amz-Expires=3600&X-Amz-SignedHeaders=host'
+    
+    canonical_headers = f'host:{host}\\n'
+    signed_headers = 'host'
+    payload_hash = 'UNSIGNED-PAYLOAD'
+    
+    canonical_request = f'GET\\n{canonical_uri}\\n{canonical_querystring}\\n{canonical_headers}\\n{signed_headers}\\n{payload_hash}'
+    
+    string_to_sign = f'{algorithm}\\n{amz_date}\\n{credential_scope}\\n{hashlib.sha256(canonical_request.encode()).hexdigest()}'
+    signature = hmac.new(k_signing, string_to_sign.encode(), hashlib.sha256).hexdigest()
+    
+    # Create signed URL
+    return f'https://{host}{path}?{canonical_querystring}&X-Amz-Signature={signature}'
+`);
+
+                document.getElementById('pyodideProgress').style.display = 'none';
+                document.getElementById('listButton').disabled = false;
+            } catch (error) {
+                showError('Failed to initialize Python environment: ' + error.message);
+            }
+        }
+
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('error').style.display = 'none';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function updateBreadcrumb() {
+            const breadcrumb = document.getElementById('breadcrumb');
+            if (!currentPath.bucket) {
+                breadcrumb.style.display = 'none';
+                return;
+            }
+
+            breadcrumb.style.display = 'block';
+            let html = `<a onclick="listBuckets()">Buckets</a>`;
+            
+            if (currentPath.bucket) {
+                html += ` > <a onclick="listObjects('${currentPath.bucket}', '')">${currentPath.bucket}</a>`;
+            }
+            
+            if (currentPath.prefix) {
+                const parts = currentPath.prefix.split('/').filter(p => p);
+                let currentPrefix = '';
+                parts.forEach((part, index) => {
+                    currentPrefix += part + '/';
+                    if (index === parts.length - 1) {
+                        html += ` > ${part}`;
+                    } else {
+                        html += ` > <a onclick="listObjects('${currentPath.bucket}', '${currentPrefix}')">${part}</a>`;
+                    }
+                });
+            }
+            
+            breadcrumb.innerHTML = html;
+        }
+
+        async function listBuckets() {
+            showLoading();
+            currentPath = { bucket: '', prefix: '' };
+            updateBreadcrumb();
+
+            const credentials = {
+                accessKey: document.getElementById('accessKey').value,
+                secretKey: document.getElementById('secretKey').value,
+                region: document.getElementById('region').value
+            };
+
+            try {
+                const result = await pyodide.runPythonAsync(`
+                    await list_buckets(
+                        '${credentials.accessKey}',
+                        '${credentials.secretKey}',
+                        '${credentials.region}'
+                    )
+                `);
+
+                const parser = new DOMParser();
+                const xml = parser.parseFromString(result, "text/xml");
+                
+                const buckets = xml.getElementsByTagName('Bucket');
+                const content = document.getElementById('content');
+                content.innerHTML = '';
+
+                Array.from(buckets).forEach(bucket => {
+                    const name = bucket.getElementsByTagName('Name')[0].textContent;
+                    const created = new Date(bucket.getElementsByTagName('CreationDate')[0].textContent)
+                        .toLocaleDateString();
+
+                    const div = document.createElement('div');
+                    div.className = 'item';
+                    div.innerHTML = `
+                        <span>📦 <a onclick="listObjects('${name}', '')" style="cursor: pointer;">${name}</a></span>
+                        <span class="size">Created: ${created}</span>
+                    `;
+                    content.appendChild(div);
+                });
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function listObjects(bucket, prefix = '') {
+            showLoading();
+            currentPath = { bucket, prefix };
+            updateBreadcrumb();
+
+            const credentials = {
+                accessKey: document.getElementById('accessKey').value,
+                secretKey: document.getElementById('secretKey').value,
+                region: document.getElementById('region').value
+            };
+
+            try {
+                const result = await pyodide.runPythonAsync(`
+                    await list_objects(
+                        '${bucket}',
+                        '${prefix}',
+                        '${credentials.accessKey}',
+                        '${credentials.secretKey}',
+                        '${credentials.region}'
+                    )
+                `);
+
+                const parser = new DOMParser();
+                const xml = parser.parseFromString(result, "text/xml");
+                
+                const content = document.getElementById('content');
+                content.innerHTML = '';
+
+                // Handle folders (CommonPrefixes)
+                const prefixes = xml.getElementsByTagName('CommonPrefixes');
+                Array.from(prefixes).forEach(p => {
+                    const folderPrefix = p.getElementsByTagName('Prefix')[0].textContent;
+                    const folderName = folderPrefix.split('/').slice(-2)[0];
+                    
+                    const div = document.createElement('div');
+                    div.className = 'item';
+                    div.innerHTML = `
+                        <span>📁 <a onclick="listObjects('${bucket}', '${folderPrefix}')" style="cursor: pointer;">${folderName}/</a></span>
+                        <span class="size">Folder</span>
+                    `;
+                    content.appendChild(div);
+                });
+
+                // Handle files (Contents)
+                const contents = xml.getElementsByTagName('Contents');
+                Array.from(contents).forEach(item => {
+                    const key = item.getElementsByTagName('Key')[0].textContent;
+                    if (key === prefix) return; // Skip the prefix itself
+                    
+                    const fileName = key.split('/').pop();
+                    const size = parseInt(item.getElementsByTagName('Size')[0].textContent);
+                    const modified = new Date(item.getElementsByTagName('LastModified')[0].textContent)
+                        .toLocaleDateString();
+
+                    const div = document.createElement('div');
+                    div.className = 'item';
+                    div.innerHTML = `
+                        <span>📄 <a onclick="downloadObject('${bucket}', '${key}')" style="cursor: pointer;">${fileName}</a></span>
+                        <span class="size">${formatSize(size)} - ${modified}</span>
+                    `;
+                    content.appendChild(div);
+                });
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function downloadObject(bucket, key) {
+            const credentials = {
+                accessKey: document.getElementById('accessKey').value,
+                secretKey: document.getElementById('secretKey').value,
+                region: document.getElementById('region').value
+            };
+
+            try {
+                const url = await pyodide.runPythonAsync(`
+                    create_download_url(
+                        '${bucket}',
+                        '${key}',
+                        '${credentials.accessKey}',
+                        '${credentials.secretKey}',
+                        '${credentials.region}'
+                    )
+                `);
+                window.open(url, '_blank');
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        function formatSize(bytes) {
+            const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+            let size = bytes;
+            let unit = 0;
+            
+            while (size >= 1024 && unit < units.length - 1) {
+                size /= 1024;
+                unit++;
+            }
+            
+            return `${size.toFixed(1)} ${units[unit]}`;
+        }
+
+        // Initialize Pyodide when the page loads
+        init();
+    </script>
+</body>
+</html> 
