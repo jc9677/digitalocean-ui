@@ -2,6 +2,10 @@
 
 A simple web-based viewer for DigitalOcean Spaces that runs entirely in the browser using Pyodide. No server required!
 
+## Demo
+
+Visit [https://jc9677.github.io/digitalocean-ui/](https://jc9677.github.io/digitalocean-ui/) to try it out.
+
 ## Features
 
 - List your Spaces buckets
@@ -13,7 +17,7 @@ A simple web-based viewer for DigitalOcean Spaces that runs entirely in the brow
 
 ## Usage
 
-1. Open `spaces_viewer_pyodide.html` in your browser
+1. Visit [https://jc9677.github.io/digitalocean-ui/](https://jc9677.github.io/digitalocean-ui/)
 2. Enter your DigitalOcean Spaces credentials:
    - Access Key
    - Secret Key
@@ -22,16 +26,16 @@ A simple web-based viewer for DigitalOcean Spaces that runs entirely in the brow
 
 ## CORS Configuration
 
-Your Space needs to be configured to allow CORS requests. Use the provided `cors_config.xml` file to configure CORS for your Space:
+Your Space needs to be configured to allow CORS requests. Use the provided `docs/cors_config.xml` file to configure CORS for your Space:
 
 ```bash
-aws s3api put-bucket-cors --bucket YOUR-BUCKET-NAME --cors-configuration file://cors_config.xml
+aws s3api put-bucket-cors --bucket YOUR-BUCKET-NAME --cors-configuration file://docs/cors_config.xml
 ```
 
 Or configure it through the DigitalOcean web console:
 1. Go to your Space settings
 2. Find the CORS configuration section
-3. Paste the contents of `cors_config.xml`
+3. Paste the contents of `docs/cors_config.xml`
 
 ## Security
 
@@ -44,7 +48,7 @@ Or configure it through the DigitalOcean web console:
 
 To run locally:
 1. Start a local web server: `python -m http.server 8000`
-2. Open `http://localhost:8000/spaces_viewer_pyodide.html`
+2. Open `http://localhost:8000/docs/spaces_viewer_pyodide.html`
 
 ## License
 
