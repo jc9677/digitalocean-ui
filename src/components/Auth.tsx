@@ -72,14 +72,14 @@ export const Auth: React.FC<AuthProps> = ({ onAuthenticated }) => {
     <Box sx={{ maxWidth: 600, mx: 'auto', mt: 4 }}>
       <Paper sx={{ p: 3 }}>
         <Typography variant="h5" gutterBottom>
-          Digital Ocean API Configuration
+          Digital Ocean Spaces Configuration
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Please enter your Digital Ocean API token and region. You can generate an API token in your{' '}
-          <Link href="https://cloud.digitalocean.com/account/api/tokens" target="_blank" rel="noopener">
-            Digital Ocean Account Settings
+          Please enter your Spaces Access Keys (not your Personal Access Token). You can generate these in your{' '}
+          <Link href="https://cloud.digitalocean.com/settings/api/spaces-keys" target="_blank" rel="noopener">
+            Spaces Access Keys
           </Link>
-          .
+          {' '}settings.
         </Typography>
 
         {testStatus && (
@@ -98,11 +98,21 @@ export const Auth: React.FC<AuthProps> = ({ onAuthenticated }) => {
           <TextField
             fullWidth
             margin="normal"
-            label="API Token"
+            label="Spaces Access Key"
             value={credentials.accessKeyId}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setCredentials({ ...credentials, accessKeyId: e.target.value })}
             required
-            helperText="Enter your Digital Ocean API token"
+            helperText="Enter your Spaces Access Key (not your Personal Access Token)"
+          />
+          <TextField
+            fullWidth
+            margin="normal"
+            label="Spaces Secret Key"
+            value={credentials.secretAccessKey}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setCredentials({ ...credentials, secretAccessKey: e.target.value })}
+            required
+            type="password"
+            helperText="Enter your Spaces Secret Key"
           />
           <TextField
             fullWidth
@@ -135,9 +145,10 @@ export const Auth: React.FC<AuthProps> = ({ onAuthenticated }) => {
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-all'
           }}>
-            Base URL: https://api.digitalocean.com/v2
-            Region: {credentials.region}
-            Token Length: {credentials.accessKeyId.length}
+            Endpoint: {credentials.region ? `https://${credentials.region}.digitaloceanspaces.com` : 'Not configured'}
+            Region: {credentials.region || 'Not set'}
+            Access Key Length: {credentials.accessKeyId.length}
+            Secret Key Length: {credentials.secretAccessKey.length}
             Has Stored Credentials: {getStoredCredentials() ? 'Yes' : 'No'}
           </Typography>
         </Box>
