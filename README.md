@@ -1,46 +1,51 @@
-# Getting Started with Create React App
+# DigitalOcean Spaces Viewer
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A simple web-based viewer for DigitalOcean Spaces that runs entirely in the browser using Pyodide. No server required!
 
-## Available Scripts
+## Features
 
-In the project directory, you can run:
+- List your Spaces buckets
+- Browse bucket contents and folders
+- Download files using pre-signed URLs
+- Runs completely client-side
+- No server or backend required
+- Uses Python in the browser via Pyodide
 
-### `npm start`
+## Usage
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+1. Open `spaces_viewer_pyodide.html` in your browser
+2. Enter your DigitalOcean Spaces credentials:
+   - Access Key
+   - Secret Key
+   - Region (e.g., tor1)
+3. Click "List Buckets" to start browsing
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+## CORS Configuration
 
-### `npm test`
+Your Space needs to be configured to allow CORS requests. Use the provided `cors_config.xml` file to configure CORS for your Space:
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+```bash
+aws s3api put-bucket-cors --bucket YOUR-BUCKET-NAME --cors-configuration file://cors_config.xml
+```
 
-### `npm run build`
+Or configure it through the DigitalOcean web console:
+1. Go to your Space settings
+2. Find the CORS configuration section
+3. Paste the contents of `cors_config.xml`
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Security
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+- All credentials are kept in memory only
+- No data is stored or sent to any server other than DigitalOcean Spaces
+- All requests are made using pre-signed URLs
+- CORS configuration ensures only authorized origins can access your Space
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## Development
 
-### `npm run eject`
+To run locally:
+1. Start a local web server: `python -m http.server 8000`
+2. Open `http://localhost:8000/spaces_viewer_pyodide.html`
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+## License
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
-
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
+MIT
