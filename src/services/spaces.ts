@@ -93,6 +93,7 @@ export class SpacesClient {
     const headers: Record<string, string> = {
       'Date': timestamp,
       'Host': this.endpoint,
+      'Origin': window.location.origin,
     };
 
     // Sign the request
@@ -111,10 +112,9 @@ export class SpacesClient {
       const response = await fetch(url, {
         ...options,
         method,
-        headers: {
-          ...headers,
-          ...options.headers,
-        },
+        headers,
+        mode: 'cors',
+        credentials: 'omit'
       });
 
       console.log('Received response:');
