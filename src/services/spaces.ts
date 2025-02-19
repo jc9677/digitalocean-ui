@@ -43,8 +43,28 @@ interface SpacesObject {
   etag: string;
 }
 
+async function hmacSHA1(key: string, message: string): Promise<string> {
+  const keyBytes = new TextEncoder().encode(key);
+  const messageBytes = new TextEncoder().encode(message);
+  
+  // Create HMAC
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyBytes,
+    { name: 'HMAC', hash: 'SHA-1' },
+    false,
+    ['sign']
+  );
+
+  // Sign the message
+  const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageBytes);
+
+  // Convert to base64
+  return btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(signature))));
+}
+
 export class SpacesClient {
-  private baseUrl: string;
+  private endpoint: string;
   private credentials: SpacesCredentials;
   readonly region: string;
 
@@ -53,27 +73,34 @@ export class SpacesClient {
     console.log('Region:', credentials.region);
     this.credentials = credentials;
     this.region = credentials.region;
-    this.baseUrl = `https://${this.region}.digitaloceanspaces.com`;
-    console.log('Base URL:', this.baseUrl);
+    this.endpoint = `${this.region}.digitaloceanspaces.com`;
+    console.log('Endpoint:', this.endpoint);
     console.log('SpacesClient initialized successfully');
   }
 
+  private async signRequest(method: string, path: string, headers: Record<string, string>): Promise<string> {
+    const timestamp = headers['Date'];
+    const stringToSign = `${method}\n\n\n${timestamp}\n/${path}`;
+    const signature = await hmacSHA1(this.credentials.secretAccessKey, stringToSign);
+    return `AWS ${this.credentials.accessKeyId}:${signature}`;
+  }
+
   private async request(path: string, options: RequestInit = {}) {
-    const url = `${this.baseUrl}${path}`;
+    const method = options.method || 'GET';
     const timestamp = new Date().toUTCString();
+    const url = `https://${this.endpoint}${path}`;
     
-    // Create signature for AWS-style authentication
-    const signature = `AWS ${this.credentials.accessKeyId}:${this.credentials.secretAccessKey}`;
-    
-    const headers = {
-      'Authorization': signature,
+    const headers: Record<string, string> = {
       'Date': timestamp,
-      'Host': `${this.region}.digitaloceanspaces.com`,
+      'Host': this.endpoint,
     };
+
+    // Sign the request
+    headers['Authorization'] = await this.signRequest(method, path.replace(/^\//, ''), headers);
 
     console.log('Making API request...');
     console.log('URL:', url);
-    console.log('Method:', options.method || 'GET');
+    console.log('Method:', method);
     console.log('Headers:', {
       ...headers,
       'Authorization': 'AWS [REDACTED]', // Don't log the actual credentials
@@ -83,6 +110,7 @@ export class SpacesClient {
       console.log('Initiating fetch request...');
       const response = await fetch(url, {
         ...options,
+        method,
         headers: {
           ...headers,
           ...options.headers,
@@ -158,7 +186,7 @@ export class SpacesClient {
   async listBuckets() {
     try {
       console.log('Listing buckets...');
-      const response = await this.request('/?location');
+      const response = await this.request('/');
       console.log('Received buckets response:', response);
       return response.spaces || [];
     } catch (error: any) {
