@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/digitalocean-ui/static/css/main.e6c13ad2.css",
-    "main.js": "/digitalocean-ui/static/js/main.18210fac.js",
+    "main.js": "/digitalocean-ui/static/js/main.692e1606.js",
     "static/js/453.d6dedddd.chunk.js": "/digitalocean-ui/static/js/453.d6dedddd.chunk.js",
     "index.html": "/digitalocean-ui/index.html",
     "main.e6c13ad2.css.map": "/digitalocean-ui/static/css/main.e6c13ad2.css.map",
-    "main.18210fac.js.map": "/digitalocean-ui/static/js/main.18210fac.js.map",
+    "main.692e1606.js.map": "/digitalocean-ui/static/js/main.692e1606.js.map",
     "453.d6dedddd.chunk.js.map": "/digitalocean-ui/static/js/453.d6dedddd.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.e6c13ad2.css",
-    "static/js/main.18210fac.js"
+    "static/js/main.692e1606.js"
   ]
 }
